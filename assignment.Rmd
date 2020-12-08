@@ -1,0 +1,82 @@
+---
+title: "Assignment"
+author: "Abhijeet Sharma"
+date: "07/12/2020"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(ggplot2)
+doc <- read.csv("activity.csv")
+act.complete <- na.omit(doc)
+```
+###Total Number of Steps Taken Per Day
+```{r}
+act.day <- group_by(act.complete, date)
+act.day <- summarize(act.day, steps=sum(steps))
+summary(act.day)
+head(act.day)
+```
+####Histogram
+```{r}
+hist(act.day$steps, xlab = "Total daily Steps",main="Histogram of Total Steps by day", breaks = 20)
+```
+####Mean and Median of the total number of steps taken per day
+```{r}
+mean(act.day$steps)
+median(act.day$steps)
+```
+####Average Daily Activity Pattern
+```{r}
+act.int <- group_by(act.complete, interval)
+act.int <- summarize(act.int, steps=mean(steps))
+ggplot(act.int, aes(interval, steps)) + geom_line()
+act.int[act.int$steps==max(act.int$steps),]
+```
+###Imputing Missing Values
+```{r}
+nrow(doc)-nrow(act.complete)
+names(act.int)[2] <- "mean.steps"
+act.impute <- merge(doc, act.int)
+```
+####New dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+act.impute$steps[is.na(act.impute$steps)] <- act.impute$mean.steps[is.na(act.impute$steps)]
+```
+####Histogram of the total number of steps taken each day
+```{r}
+act.day.imp <- group_by(act.impute, date)
+act.day.imp <- summarize(act.day.imp, steps=sum(steps))
+
+qplot(steps, data=act.day.imp)
+```
+###Differences in activity patterns between weekdays and weekends
+####To create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+```{r}
+act.impute$dayofweek <- weekdays(as.Date(act.impute$date))
+act.impute$weekend <-as.factor(act.impute$dayofweek=="Saturday"|act.impute$dayofweek=="Sunday")
+levels(act.impute$weekend) <- c("Weekday", "Weekend")
+```
+####Panel plot containing a time series plot 
+First I create separate data frames for weekends and weekdays:
+
+```{r}
+act.weekday <- act.impute[act.impute$weekend=="Weekday",]
+act.weekend <- act.impute[act.impute$weekend=="Weekend",]
+```
+Then for each one, I find the mean number of steps across days for each 5 minute interval:
+
+```{r}
+act.int.weekday <- group_by(act.weekday, interval)
+act.int.weekday <- summarize(act.int.weekday, steps=mean(steps))
+act.int.weekday$weekend <- "Weekday"
+act.int.weekend <- group_by(act.weekend, interval)
+act.int.weekend <- summarize(act.int.weekend, steps=mean(steps))
+act.int.weekend$weekend <- "Weekend"
+```
+I append the two data frames together, and I make the two time series plots:
+```{r}
+act.int <- rbind(act.int.weekday, act.int.weekend)
+act.int$weekend <- as.factor(act.int$weekend)
+ggplot(act.int, aes(interval, steps)) + geom_line() + facet_grid(weekend ~ .)
+```
